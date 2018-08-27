@@ -414,5 +414,5 @@ function getKey(key) {
 }
 
 function updateTokenInfo(token, tokenEl) {
-  tokenEl.innerText = `${token.symbol}: ${token.name}, ${token.decimals} decimals`;
+  tokenEl.innerText = `${token.name} (${token.symbol}), ${token.decimals} decimals`;
 }
