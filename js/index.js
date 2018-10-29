@@ -1,6 +1,21 @@
 'use strict';
 
-window.addEventListener("load", main);
+var fs = require("fs");
+var themes = require("./themes.json");
+
+var currentTheme = window.localStorage.getItem("theme");
+
+if (themes[currentTheme] != undefined) {
+  setTheme(currentTheme);
+} else {
+  setTheme("day");
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", main);
+} else {
+  main();
+}
 
 function main() {
   var Web3 = require("web3");
@@ -15,6 +30,9 @@ function main() {
   var keyEl = document.getElementsByName("privkey")[0];
   var contractEl = document.getElementsByName("contract")[0];
   var tokenEl = document.getElementById("token");
+
+  var switchEl = document.getElementById("theme-switch");
+  switchEl.firstElementChild.className = window.localStorage.getItem("theme");
 
   var key = "";
   var address = "";
@@ -89,7 +107,7 @@ function main() {
     row.className = "wallet cards row";
     row.innerHTML = `
       <div class="col-md-1">
-      <button class="card remove" type="button">-</button>
+      <button class="card remove" type="button">–</button>
       </div>
 
       <div class="col-md-5">
@@ -179,10 +197,30 @@ function main() {
     });
   });
 
+  switchEl.addEventListener("click", () => {
+    if (window.localStorage.getItem("theme") == "day") {
+      setTheme("night");
+      switchEl.firstElementChild.className = "night";
+    } else {
+      setTheme("day");
+      switchEl.firstElementChild.className = "day";
+    }
+  });
+
   makeCollapsible();
+  addTosModal();
 
   updateGas();
   window.setInterval(updateGas, 5000);
+}
+
+function setTheme(theme) {
+
+  window.localStorage.setItem("theme", theme);
+
+  Object.keys(themes[theme]).forEach(k => {
+    document.body.style.setProperty(k, themes[theme][k]);
+  });
 }
 
 function sendEth(web3, updateBalance, contract, token) {
@@ -248,14 +286,14 @@ function sendEth(web3, updateBalance, contract, token) {
 }
 
 function showError(e, address, r) {
-  const cross = require("../img/times-circle-regular.svg");
+  const cross = fs.readFileSync("img/failed.svg", "utf8");
 
   var wallet = getWalletByAddress(address);
   if (!r) {
-    wallet.lastElementChild.lastElementChild.innerHTML = `<img src="${cross}" alt="${e}" width="24" height="24">`;
+    wallet.lastElementChild.lastElementChild.innerHTML = `<div class="icon middle">${cross}</div>`;
     wallet.lastElementChild.lastElementChild.title = e;
   } else {
-    wallet.lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><img src="${cross}" alt="${e}" width="24" height="24"></a>`;
+    wallet.lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><div class="icon middle" alt="${e}">${cross}</div></a>`;
   }
 
   if (wallet.children.length == 4) {
@@ -275,10 +313,9 @@ function showError(e, address, r) {
 
 function showReceipt(r, address) {
   if (r.status) {
-    const tick = require("../img/external-link-alt-solid.svg");
+    const tick = fs.readFileSync("img/external-link.svg", "utf8");
     var wallet = getWalletByAddress(address);
-    // TODO: change to mainnet
-    wallet.lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><img src="${tick}" alt="success, click to view on Etherscan" width="24" height="24"></a>`;
+    wallet.lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><div class="icon middle">${tick}</div></a>`;
     wallet.lastElementChild.lastElementChild.title = "success, click to view on Etherscan";
     if (wallet.children.length == 4) {
       for (var i = 0; i <= 2; i++) {
@@ -295,16 +332,16 @@ function showReceipt(r, address) {
     }
     wallet.className += " success";
   } else {
-    const cross = require("../img/times-circle-regular.svg");
-    getWalletByAddress(address).lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><img width="24" height="24" src="${cross}" alt=""></a>`;
+    const cross = fs.readFileSync("img/failed.svg", "utf8");
+    getWalletByAddress(address).lastElementChild.lastElementChild.innerHTML = `<a rel="noopener" target="_blank" class="receipt" href="https://etherscan.io/tx/${r.transactionHash}"><div class="icon">${cross}</div></a>`;
   }
 }
 
 function setWaiting() {
-  const clock = require("../img/clock-solid.svg");
+  const clock = fs.readFileSync("img/loading.svg", "utf8");
   document.querySelectorAll(".address:not([disabled])").forEach(childEl => {
     el = childEl.parentElement.parentElement;
-    el.lastElementChild.lastElementChild.innerHTML = `<img src="${clock}" alt="sending..." width="24" height="24">`;
+    el.lastElementChild.lastElementChild.innerHTML = `<div class="icon spin middle">${clock}</div>`;
 
     if (el.children.length == 4) {
       for (var i = 0; i <= 2; i++) {
@@ -377,8 +414,6 @@ function getWalletByAddress(address) {
  * Makes a div with a link with class "collapsible" collapsible.
  * The div must have no class and must have exactly two children: a link and
  * a div with no class.
- *
- * The link also has to have a span with a + inside.
  */
 function makeCollapsible() {
   var els = document.getElementsByClassName("collapsible");
@@ -390,13 +425,13 @@ function makeCollapsible() {
     el.addEventListener("click", () => {
       if (el.parentElement.lastElementChild.className == "collapsed") {
         el.parentElement.lastElementChild.className = "fade-in";
-        el.firstElementChild.innerText = "-";
+        el.className = "collapsible on";
       } else {
         el.parentElement.lastElementChild.className = "fade-out";
         window.setTimeout(() => {
           el.parentElement.lastElementChild.className = "collapsed";
         }, 290);
-        el.firstElementChild.innerText = "+";
+        el.className = "collapsible off";
       }
     });
   }
@@ -415,4 +450,24 @@ function getKey(key) {
 
 function updateTokenInfo(token, tokenEl) {
   tokenEl.innerText = `${token.name} (${token.symbol}), ${token.decimals} decimals`;
+}
+
+function addTosModal() {
+  var tingle = require("tingle.js");
+  var tosEl = document.getElementById("tos");
+
+  var modal = new tingle.modal({
+    footer: true,
+    closeMethods: ['overlay', 'escape']
+  });
+
+  modal.setContent(require("../disclaimer.html"));
+  modal.addFooterBtn('done', 'card tos', function() {
+    modal.close();
+  });
+
+  tosEl.onclick = () => {
+    modal.open();
+    return false;
+  };
 }
