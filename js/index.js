@@ -19,7 +19,8 @@ if (document.readyState === "loading") {
 
 function main() {
   var Web3 = require("web3");
-  var web3 = new Web3("https://rinkeby.infura.io/v3/84e0a3375afd4f57b4753d39188311d7");
+  // chain-specific
+  var web3 = new Web3("https://mainnet.infura.io/v3/84e0a3375afd4f57b4753d39188311d7");
 
   var plusEl = document.getElementById("add");
   var setAllAmountEl = document.getElementById("setall-amount-btn");
@@ -39,21 +40,35 @@ function main() {
   var contract = {};
   var token = {};
 
+  /**
+   * Update variable with the private key from a form value.
+   */
   const updateKey = () => {
     key = getKey(keyEl.value);
     return !key ? false : true;
   }
 
+
+  /**
+   * Update variable with the target address, using key from a form value.
+   */
   const updateAddress = () => {
     address = web3.eth.accounts.privateKeyToAccount(`${key}`).address;
   }
 
+  /**
+   * Update nonce for the address in the form.
+   */
   const updateNonce = () => {
     web3.eth.getTransactionCount(address).then(count => {
       document.getElementsByName("nonce")[0].value = count;
     });
   };
 
+  /**
+   * Update balance displayed in HTML, using the target address from the
+   * previous function. Update token balance if available.
+   */
   const updateBalance = () => {
     web3.eth.getBalance(address).then(balance => {
       return new Promise(resolve => {
@@ -73,12 +88,18 @@ function main() {
     });
   };
 
+  /**
+   * Sequentially update key, address and balance.
+   */
   const updateKeyBalance = () => {
     if (!updateKey()) return;
     updateAddress();
     updateBalance();
   };
 
+  /**
+   * Sequentially update key, address, nonce and balance.
+   */
   const updateAll = () => {
     if (!updateKey()) return;
     updateAddress();
@@ -86,6 +107,9 @@ function main() {
     updateBalance();
   }
 
+  /**
+   * Update suggested gas price in the corresponding HTML element.
+   */
   const updateGas = () => {
     web3.eth.getGasPrice().then(price => {
       document.getElementById("gasprice").innerText = `suggested gas price: ${parseFloat(web3.utils.fromWei(price, "gwei")).toFixed(2)} gwei`;
@@ -102,6 +126,7 @@ function main() {
   document.getElementById("recalculate").addEventListener("click", updateAll);
 
 
+  // create new input fields on plus clicked
   plusEl.addEventListener("click", () => {
     var row = document.createElement("div");
     row.className = "wallet cards row";
@@ -214,6 +239,10 @@ function main() {
   window.setInterval(updateGas, 5000);
 }
 
+/**
+ * Set all the CSS variables, changing the theme. Record it in localStorage.
+ * @arg theme {string} - theme name, a name of an object in the themes.json file
+ */
 function setTheme(theme) {
 
   window.localStorage.setItem("theme", theme);
@@ -223,6 +252,14 @@ function setTheme(theme) {
   });
 }
 
+/**
+ * Get input data and actually send tokens.
+ * @arg {web3} web3 - a Web3 instance
+ * @arg {function} updateBalance - a function that updates balance in
+ * @arg {Object} contract - the web3 contract object
+ * @arg {Object} token - object containing token info
+ * the corresponding HTML element.
+ */
 function sendEth(web3, updateBalance, contract, token) {
   getInputData().then(data => {
     if (data == undefined || data.transactions.length == 0) {
@@ -248,6 +285,7 @@ function sendEth(web3, updateBalance, contract, token) {
         if (web3.utils.isAddress(txn.address)) {
           var call = contract.methods.transfer(txn.address, txn.amount * 10 ** token.decimals);
 
+          // chain-specific
           var tx = new Tx({chainId: 1});
           tx.gasPrice = new BN(web3.utils.toWei(txn.fee, "shannon"));
           tx.value = 0;
@@ -285,6 +323,12 @@ function sendEth(web3, updateBalance, contract, token) {
   });
 }
 
+/**
+ * Show an error: make the fields red, add a cross sign at the right.
+ * @arg e {string} - error
+ * @arg address {string} - the private key of the wallet you want to show error for
+ * @arg r {receipt} - the web3 receipt
+ */
 function showError(e, address, r) {
   const cross = fs.readFileSync("img/failed.svg", "utf8");
 
@@ -311,6 +355,12 @@ function showError(e, address, r) {
   }
 }
 
+/**
+ * Show an receipt: make the fields green in case of success, add an etherscan
+ * link at the right.
+ * @arg r {receipt} - the web3 receipt
+ * @arg address {string} - the private key of the wallet you want to show error for
+ */
 function showReceipt(r, address) {
   if (r.status) {
     const tick = fs.readFileSync("img/external-link.svg", "utf8");
@@ -337,6 +387,9 @@ function showReceipt(r, address) {
   }
 }
 
+/**
+ * Make all (except successful) fields disabled, add a loading spinner at the right.
+ */
 function setWaiting() {
   const clock = fs.readFileSync("img/loading.svg", "utf8");
   document.querySelectorAll(".address:not([disabled])").forEach(childEl => {
@@ -357,6 +410,9 @@ function setWaiting() {
   });
 }
 
+/**
+ * Get data from the form, convert it to a usable format.
+ */
 function getInputData() {
   return new Promise(resolve => {
     var data = new FormData(document.getElementById("config"));
@@ -400,6 +456,10 @@ function getInputData() {
   });
 }
 
+/**
+ * Get a wallet element by its address.
+ * @arg address {string} - the address
+ */
 function getWalletByAddress(address) {
   var nodes = document.querySelectorAll("input.address:not(.success)");
   for (var i = 0; i < nodes.length; i++) {
@@ -437,6 +497,10 @@ function makeCollapsible() {
   }
 }
 
+/**
+ * If the key doesn't start with 0x, append it to its beginning.
+ * @arg key {string}
+ */
 function getKey(key) {
   if (!key.startsWith("0x")) {
     key = "0x" + key;
@@ -448,10 +512,18 @@ function getKey(key) {
   return key;
 }
 
+/**
+ * Update token info in a HTML element.
+ * @arg {Object} token — object containing token info
+ * @arg {Object} tokenEl - the element to update info inside
+ */
 function updateTokenInfo(token, tokenEl) {
   tokenEl.innerText = `${token.name} (${token.symbol}), ${token.decimals} decimals`;
 }
 
+/**
+ * Use tingle.js to make a modal for Terms of Service.
+ */
 function addTosModal() {
   var tingle = require("tingle.js");
   var tosEl = document.getElementById("tos");
